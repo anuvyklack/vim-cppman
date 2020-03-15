@@ -1,4 +1,4 @@
-" This is essentially an adapted version of the cppman.vim script that is 
+" This is essentially an adapted version of the cppman.vim script that is
 " included with cppman. Authored by Wei-Ning Huang (AZ) <aitjcize@gmail.com>
 " and others.
 "
@@ -31,9 +31,10 @@ endfunction
 function! s:reload()
   setl noro
   setl ma
-  echo "Loading..."
-  exec "%d"
-  exec "0r! cppman --force-columns " . (winwidth(0) - 2) . " '" . g:page_name . "'"
+  exec "silent! %d"
+  exec "silent! 0r! cppman --force-columns " . (winwidth(0) - 2) . " '" . g:page_name . "'"
+  exec "silent! %s/’/'/g"
+  normal! gg
   setl ro
   setl noma
   setl nomod
@@ -41,7 +42,7 @@ endfunction
 
 function! s:Rerender()
   if winwidth(0) != s:old_col
-    let s:old_col = winwidth(0) 
+    let s:old_col = winwidth(0)
     let save_cursor = getpos(".")
     call s:reload()
     call setpos('.', save_cursor)
@@ -51,21 +52,24 @@ endfunction
 function! LoadNewPage()
   " Save current page to stack
   call add(g:stack, [g:page_name, getpos(".")])
-  let g:page_name = expand("<cword>")
-  setl noro
-  setl ma
+  let g:page_name = expand("<cWORD>")
+  setl noreadonly
+  setl modifiable
   call s:reload()
-  normal! gg
-  setl ro
-  setl noma
-  setl nomod
+  " normal! gg
+  setl readonly
+  setl nomodifiable
+  setl nomodified
 endfunction
 
 function! s:Cppman(page)
-  vertical bo new
+  vertical topleft new
+  " tab new
   setlocal buftype=nofile
   setlocal bufhidden=delete
   setlocal noswapfile
+  setlocal iskeyword+=:,=,~,[,],*,!,<,>
+  setlocal filetype=cppman
 
   let g:page_name = a:page
 
@@ -80,9 +84,9 @@ function! s:Cppman(page)
     finish
   endif
 
-  syntax on
+  " syntax on
   syntax case ignore
-  syntax match  manReference       "[a-z_:+-\*][a-z_:+-~!\*<>]\+([1-9][a-z]\=)"
+  syntax match  manReference       "[a-z_:+-\*][a-z_:+-~!\*<>()]\+ ([1-9][a-z]\=)"
   syntax match  manTitle           "^\w.\+([0-9]\+[a-z]\=).*"
   syntax match  manSectionHeading  "^[a-z][a-z_ \-:]*[a-z]$"
   syntax match  manSubHeading      "^\s\{3\}[a-z][a-z ]*[a-z]$"
@@ -106,11 +110,11 @@ function! s:Cppman(page)
       command -nargs=+ HiLink hi def link <args>
     endif
 
-    HiLink manTitle	    Title
+    HiLink manTitle	          Title
     HiLink manSectionHeading  Statement
-    HiLink manOptionDesc	    Constant
+    HiLink manOptionDesc	  Constant
     HiLink manLongOptionDesc  Constant
-    HiLink manReference	    PreProc
+    HiLink manReference	      PreProc
     HiLink manSubHeading      Function
     HiLink manCFuncDefinition Function
 
@@ -124,7 +128,7 @@ function! s:Cppman(page)
 
   let g:stack = []
 
-  noremap <buffer> K :call LoadNewPage()<CR>
+  noremap <silent> <buffer> K :call LoadNewPage()<CR>
   map <buffer> <CR> K
   map <buffer> <C-]> K
   map <buffer> <2-LeftMouse> K
@@ -134,15 +138,20 @@ function! s:Cppman(page)
 
   let b:current_syntax = "man"
 
-  let s:old_col = 0 
+  let s:old_col = 0
   autocmd VimResized * call s:Rerender()
 
   " Open page
   call s:reload()
-  exec "0"
+
+  if v:shell_error
+    echo "No manual for '".g:page_name."'"
+    quit
+  else
+    exec "0"
+  endif
 endfunction
 
-command! -nargs=+ Cppman call s:Cppman(expand(<q-args>)) 
-setl keywordprg=:Cppman                                  
-setl iskeyword+=:,=,~,[,],*,!,<,>                        
-
+command! -nargs=+ Cppman call s:Cppman(expand(<q-args>))
+setl keywordprg=:Cppman
+" setl iskeyword+=:,=,~,[,],*,!,<,>
